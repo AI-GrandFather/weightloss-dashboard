@@ -40,3 +40,7 @@ Antigravity reads `AGENTS.md` at project root and expects rules at `.agent/rules
 `CLAUDE.md` is kept only as a pointer in case this repo is ever opened in Claude Code.
 See docs/ANTIGRAVITY-NOTES.md for the skills-path ambiguity and the verification step
 required before the first real session.
+
+**D008 — Mobile Compatibility and Theme Toggle Layout Overhaul.**
+Rationale: To ensure high contrast, proper spacing, and optimal mobile/desktop usage, the 4 manual logging forms were consolidated into a unified Dialog modal with a tabbed layout. The dashboard body now focuses on the timeline activity feed and analytics charts. A theme toggle was added to the header to dynamically switch between dark and light modes, updating both Tailwind layout classes and Recharts grid/label/tooltip colors.
+

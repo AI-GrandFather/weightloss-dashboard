@@ -12,17 +12,18 @@
 ## Phase 2 — Visualization
 - Recharts: weight trend line, calories in vs. out, steps trend, exercise minutes/week.
 - Streak view: consecutive days logged.
-- Goal setting: target weight, target daily calories, simple progress indicator.
+- Goal setting: target weight, target daily calories, simple progress indicator. (COMPLETE)
 
 ## Phase 3 — LLM refinement (conditional)
 - Only if Phase 1 usage shows Groq estimation accuracy is a real problem: add OpenAI fallback
   via LiteLLM for low-confidence or ambiguous food-name lookups.
 - Editable macro corrections feed back into `food_cache` so the estimate improves over time.
 
-## Phase 4 — Polish
-- Mobile-responsive pass, PWA manifest.
-- CSV export.
-- Empty states, loading states, error states across all forms.
+## Phase 4 — Polish (COMPLETE)
+- Mobile-responsive pass, PWA manifest. (COMPLETE)
+- CSV export. (COMPLETE)
+- Empty states, loading states, error states across all forms. (COMPLETE)
 
 Each phase ends with `npm run typecheck && npm run build` passing and a COMMITS.md entry
 before starting the next.
+
