@@ -34,7 +34,6 @@ import {
   Calendar, 
   ChevronLeft, 
   ChevronRight,
-  LogOut,
   Download,
   Settings,
   Activity,
@@ -236,11 +235,7 @@ export default function DashboardClient({
     setSelectedDate(d.toLocaleDateString('sv-SE'));
   };
 
-  // Logout / clear secret cookie
-  const handleLogout = () => {
-    document.cookie = "shared_secret_session=; path=/; expires=Thu, 01 Jan 1970 00:00:00 UTC;";
-    window.location.reload();
-  };
+
 
   // Submit Handlers
   const handleWeightSubmit = async (e: React.FormEvent) => {
@@ -611,14 +606,6 @@ export default function DashboardClient({
               </DialogContent>
             </Dialog>
 
-            <Button 
-              variant="ghost" 
-              size="icon" 
-              onClick={handleLogout}
-              className="text-slate-400 hover:text-slate-100 hover:bg-slate-900 h-9 w-9"
-            >
-              <LogOut className="h-4 w-4" />
-            </Button>
           </div>
         </div>
       </header>
