@@ -9,3 +9,4 @@ ae0d304 2026-07-12 20:36 PKT Phase 2-4 — implemented Recharts trend charts, st
 fad3406 2026-07-12 21:37 PKT Polish — completed UI overhaul of layout, modalized logging forms, theme toggle, and spacious padding
 c9a834e 2026-07-13 01:11 PKT Polish — documented layout overhaul decisions and updated roadmap milestones status
 bfd4160 2026-07-13 01:34 PKT Release hardening — restored signed shared-secret protection, validated server actions, fixed mobile/accessibility issues, upgraded Next.js, and added CI/tests/deployment docs
+57be740 2026-07-13 01:37 PKT Deployment — excluded local secrets and agent metadata from Vercel uploads
