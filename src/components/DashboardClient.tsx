@@ -685,86 +685,112 @@ export default function DashboardClient({
             {/* Today's Summary Grid */}
             <section className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 animate-in fade-in duration-300">
               {/* Weight Card */}
-              <Card className="border-slate-900 bg-slate-900/20 backdrop-blur-xl relative overflow-hidden">
+              <Card className="border-slate-800 bg-slate-900/40 backdrop-blur-xl relative overflow-hidden">
                 <div className="absolute top-0 left-0 w-1 h-full bg-blue-500" />
                 <CardHeader className="flex flex-row items-center justify-between pb-2 space-y-0">
-                  <CardTitle className="text-sm font-medium text-slate-400">Current Weight</CardTitle>
+                  <CardTitle className="text-sm font-medium text-slate-350">Current Weight</CardTitle>
                   <Scale className="h-4 w-4 text-blue-400" />
                 </CardHeader>
                 <CardContent>
-                  <div className="text-3xl font-bold tracking-tight text-slate-100">
+                  <div className="text-3xl font-bold tracking-tight text-slate-50">
                     {stats.weight ? `${stats.weight} kg` : "—"}
                   </div>
                   {stats.weight && weightGoal && (
-                    <div className="text-xs text-slate-400 mt-2">
-                      Goal: {weightGoal} kg • Diff: {Math.round((stats.weight - weightGoal) * 10) / 10} kg
+                    <div className="text-xs mt-2 font-medium">
+                      {stats.weight > weightGoal ? (
+                        <span className="text-amber-400">+{Math.round((stats.weight - weightGoal) * 10) / 10} kg above target</span>
+                      ) : stats.weight < weightGoal ? (
+                        <span className="text-emerald-400">-{Math.round((weightGoal - stats.weight) * 10) / 10} kg under target</span>
+                      ) : (
+                        <span className="text-emerald-400 font-semibold">On target! 🎉</span>
+                      )}
                     </div>
                   )}
-                  <p className="text-xs text-slate-500 mt-1">
+                  <p className="text-[10px] text-slate-500 mt-1.5">
                     {stats.weightDate ? `Logged since ${stats.weightDate}` : "No logged weight"}
                   </p>
                 </CardContent>
               </Card>
 
               {/* Diet Card */}
-              <Card className="border-slate-900 bg-slate-900/20 backdrop-blur-xl relative overflow-hidden">
+              <Card className="border-slate-800 bg-slate-900/40 backdrop-blur-xl relative overflow-hidden">
                 <div className="absolute top-0 left-0 w-1 h-full bg-emerald-500" />
                 <CardHeader className="flex flex-row items-center justify-between pb-2 space-y-0">
-                  <CardTitle className="text-sm font-medium text-slate-400">Diet Calories</CardTitle>
+                  <CardTitle className="text-sm font-medium text-slate-350">Diet Calories</CardTitle>
                   <Utensils className="h-4 w-4 text-emerald-400" />
                 </CardHeader>
                 <CardContent>
-                  <div className="text-3xl font-bold tracking-tight text-slate-100">
+                  <div className="text-3xl font-bold tracking-tight text-slate-50">
                     {stats.dietCalories} kcal
                   </div>
-                  <div className="w-full bg-slate-850 h-1.5 rounded-full mt-2 overflow-hidden">
+                  <div className="w-full bg-slate-950 h-1.5 rounded-full mt-2 overflow-hidden border border-slate-800">
                     <div 
                       className="bg-emerald-500 h-full transition-all duration-350"
                       style={{ width: `${Math.min(100, (stats.dietCalories / caloriesGoal) * 100)}%` }}
                     />
                   </div>
-                  <div className="text-xs text-slate-400 mt-2 flex justify-between gap-1">
-                    <span>P: {stats.dietProtein}g</span>
-                    <span>C: {stats.dietCarbs}g</span>
-                    <span>F: {stats.dietFat}g</span>
+                  <div className="text-xs mt-2 flex justify-between items-center font-medium">
+                    <span>
+                      {caloriesGoal - stats.dietCalories >= 0 ? (
+                        <span className="text-emerald-400">{caloriesGoal - stats.dietCalories} kcal left</span>
+                      ) : (
+                        <span className="text-rose-450">{Math.abs(caloriesGoal - stats.dietCalories)} kcal over</span>
+                      )}
+                    </span>
+                    <span className="text-slate-500 text-[10px]">Goal: {caloriesGoal}</span>
+                  </div>
+                  <div className="text-[10px] text-slate-400 mt-1.5 flex justify-between gap-1 border-t border-slate-900 pt-1.5">
+                    <span>Protein: {stats.dietProtein}g</span>
+                    <span>Carbs: {stats.dietCarbs}g</span>
+                    <span>Fat: {stats.dietFat}g</span>
                   </div>
                 </CardContent>
               </Card>
 
               {/* Steps Card */}
-              <Card className="border-slate-900 bg-slate-900/20 backdrop-blur-xl relative overflow-hidden">
+              <Card className="border-slate-800 bg-slate-900/40 backdrop-blur-xl relative overflow-hidden">
                 <div className="absolute top-0 left-0 w-1 h-full bg-amber-500" />
                 <CardHeader className="flex flex-row items-center justify-between pb-2 space-y-0">
-                  <CardTitle className="text-sm font-medium text-slate-400">Daily Steps</CardTitle>
+                  <CardTitle className="text-sm font-medium text-slate-355">Daily Steps</CardTitle>
                   <Footprints className="h-4 w-4 text-amber-400" />
                 </CardHeader>
                 <CardContent>
-                  <div className="text-3xl font-bold tracking-tight text-slate-100">
+                  <div className="text-3xl font-bold tracking-tight text-slate-50">
                     {stats.steps.toLocaleString()}
                   </div>
-                  <div className="w-full bg-slate-850 h-1.5 rounded-full mt-2 overflow-hidden">
+                  <div className="w-full bg-slate-950 h-1.5 rounded-full mt-2 overflow-hidden border border-slate-800">
                     <div 
                       className="bg-amber-500 h-full transition-all duration-350"
                       style={{ width: `${Math.min(100, (stats.steps / stepsGoal) * 100)}%` }}
                     />
                   </div>
-                  <p className="text-xs text-slate-500 mt-1">Goal: {stepsGoal.toLocaleString()} steps</p>
+                  <p className="text-xs mt-2 flex justify-between font-medium">
+                    {stepsGoal - stats.steps > 0 ? (
+                      <span className="text-amber-400">{(stepsGoal - stats.steps).toLocaleString()} left</span>
+                    ) : (
+                      <span className="text-emerald-400 font-semibold">Goal met! 🎉</span>
+                    )}
+                    <span className="text-slate-500 text-[10px]">Goal: {stepsGoal.toLocaleString()}</span>
+                  </p>
                 </CardContent>
               </Card>
 
               {/* Exercise Card */}
-              <Card className="border-slate-900 bg-slate-900/20 backdrop-blur-xl relative overflow-hidden">
+              <Card className="border-slate-800 bg-slate-900/40 backdrop-blur-xl relative overflow-hidden">
                 <div className="absolute top-0 left-0 w-1 h-full bg-rose-500" />
                 <CardHeader className="flex flex-row items-center justify-between pb-2 space-y-0">
-                  <CardTitle className="text-sm font-medium text-slate-400">Exercise Activity</CardTitle>
+                  <CardTitle className="text-sm font-medium text-slate-350">Exercise Activity</CardTitle>
                   <Flame className="h-4 w-4 text-rose-400" />
                 </CardHeader>
                 <CardContent>
-                  <div className="text-3xl font-bold tracking-tight text-slate-100">
+                  <div className="text-3xl font-bold tracking-tight text-slate-50">
                     {stats.exerciseCalories} kcal
                   </div>
-                  <p className="text-xs text-slate-400 mt-1">
-                    {stats.exerciseMinutes} mins active today
+                  <p className="text-xs text-slate-400 mt-2.5 flex justify-between items-center font-medium">
+                    <span>{stats.exerciseMinutes} mins active</span>
+                    <span className="text-[10px] bg-slate-950 border border-slate-800 text-indigo-400 px-2 py-0.5 rounded-full font-semibold">
+                      Net: {stats.dietCalories - stats.exerciseCalories} kcal
+                    </span>
                   </p>
                 </CardContent>
               </Card>
