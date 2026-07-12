@@ -7,3 +7,4 @@ ae0d304 2026-07-12 20:36 PKT Phase 2-4 — implemented Recharts trend charts, st
 2582d70 2026-07-12 20:43 PKT Polish — made dashboard fully open by bypassing middleware gate and removing logout button
 7597acd 2026-07-12 21:22 PKT Polish — resolved styling contrast/dark-mode issues and added target comparison metrics
 fad3406 2026-07-12 21:37 PKT Polish — completed UI overhaul of layout, modalized logging forms, theme toggle, and spacious padding
+c9a834e 2026-07-13 01:11 PKT Polish — documented layout overhaul decisions and updated roadmap milestones status
