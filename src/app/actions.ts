@@ -2,24 +2,47 @@
 
 import { query } from "@/lib/db";
 import { revalidatePath } from "next/cache";
+import { cookies } from "next/headers";
+import { createSessionToken, isValidSession, SESSION_COOKIE, constantTimeEqual } from "@/lib/session";
+import {
+  foodCacheKey,
+  optionalNumber,
+  optionalText,
+  requireDate,
+  requireExerciseType,
+  requireNumber,
+  requireText,
+} from "@/lib/validation";
+
+async function assertAuthorized(): Promise<void> {
+  const secret = process.env.SHARED_SECRET;
+  if (!secret) throw new Error("Dashboard access is not configured.");
+  const cookieStore = await cookies();
+  if (!(await isValidSession(cookieStore.get(SESSION_COOKIE)?.value, secret))) {
+    throw new Error("Your dashboard session has expired. Refresh and unlock it again.");
+  }
+}
 
 // 1. Weight Log Actions
 export async function addWeightLog(date: string, weight: number, note: string) {
-  if (!date || isNaN(weight)) {
-    throw new Error("Invalid input data.");
-  }
+  await assertAuthorized();
+  const validDate = requireDate(date);
+  const validWeight = requireNumber(weight, "Weight", 20, 500);
+  const validNote = optionalText(note, "Note");
   
   await query(
     `INSERT INTO weight_logs (logged_date, weight_kg, note) 
      VALUES ($1, $2, $3) 
      ON CONFLICT (logged_date) 
      DO UPDATE SET weight_kg = EXCLUDED.weight_kg, note = EXCLUDED.note`,
-    [date, weight, note || null]
+    [validDate, validWeight, validNote]
   );
   revalidatePath("/");
 }
 
 export async function deleteWeightLog(id: string) {
+  await assertAuthorized();
+  requireText(id, "Log ID", 100);
   await query(`DELETE FROM weight_logs WHERE id = $1`, [id]);
   revalidatePath("/");
 }
@@ -33,40 +56,48 @@ export async function addExerciseLog(
   caloriesBurned: number | null, 
   note: string
 ) {
-  if (!date || !type) {
-    throw new Error("Invalid input data.");
-  }
+  await assertAuthorized();
+  const validDate = requireDate(date);
+  const validType = requireExerciseType(type);
+  const validDuration = optionalNumber(duration, "Duration", 0, 1440);
+  const validDistance = optionalNumber(distance, "Distance", 0, 1000);
+  const validCalories = optionalNumber(caloriesBurned, "Calories burned", 0, 10000);
+  const validNote = optionalText(note, "Note");
   
   await query(
     `INSERT INTO exercise_logs (logged_date, exercise_type, duration_minutes, distance_km, calories_burned, note) 
      VALUES ($1, $2, $3, $4, $5, $6)`,
-    [date, type, duration, distance, caloriesBurned, note || null]
+    [validDate, validType, validDuration, validDistance, validCalories, validNote]
   );
   revalidatePath("/");
 }
 
 export async function deleteExerciseLog(id: string) {
+  await assertAuthorized();
+  requireText(id, "Log ID", 100);
   await query(`DELETE FROM exercise_logs WHERE id = $1`, [id]);
   revalidatePath("/");
 }
 
 // 3. Daily Steps Actions
 export async function addDailySteps(date: string, steps: number) {
-  if (!date || isNaN(steps)) {
-    throw new Error("Invalid input data.");
-  }
+  await assertAuthorized();
+  const validDate = requireDate(date);
+  const validSteps = requireNumber(steps, "Steps", 0, 200000);
   
   await query(
     `INSERT INTO daily_steps (logged_date, steps) 
      VALUES ($1, $2) 
      ON CONFLICT (logged_date) 
      DO UPDATE SET steps = EXCLUDED.steps`,
-    [date, steps]
+    [validDate, validSteps]
   );
   revalidatePath("/");
 }
 
 export async function deleteDailySteps(date: string) {
+  await assertAuthorized();
+  requireDate(date);
   await query(`DELETE FROM daily_steps WHERE logged_date = $1`, [date]);
   revalidatePath("/");
 }
@@ -90,11 +121,10 @@ export interface FoodCacheRow {
 }
 
 export async function estimateFood(foodName: string, quantity: string): Promise<EstimatedMacros> {
-  if (!foodName) {
-    throw new Error("Food name is required.");
-  }
-
-  const normalized = foodName.toLowerCase().trim();
+  await assertAuthorized();
+  const validFoodName = requireText(foodName, "Food name");
+  const validQuantity = optionalText(quantity, "Quantity", 100) ?? "";
+  const normalized = foodCacheKey(validFoodName, validQuantity);
 
   // Check Cache first (D003)
   const cachedRows = await query<FoodCacheRow>(
@@ -117,15 +147,18 @@ export async function estimateFood(foodName: string, quantity: string): Promise<
   }
 
   // Cache Miss -> Call Groq API via standard HTTP fetch (D004)
-  const apiKey = process.env.GROQ_API_KEY;
+  const liteLlmBaseUrl = process.env.LITELLM_BASE_URL?.replace(/\/$/, "");
+  const apiKey = liteLlmBaseUrl ? process.env.LITELLM_API_KEY : process.env.GROQ_API_KEY;
   if (!apiKey) {
-    throw new Error("GROQ_API_KEY is not configured.");
+    throw new Error(`${liteLlmBaseUrl ? "LITELLM_API_KEY" : "GROQ_API_KEY"} is not configured.`);
   }
 
-  const modelUsed = "llama-3.3-70b-specdec";
+  const modelUsed = liteLlmBaseUrl
+    ? (process.env.LITELLM_MODEL || "groq/llama-3.3-70b-versatile")
+    : "llama-3.3-70b-versatile";
   
   try {
-    const response = await fetch("https://api.groq.com/openai/v1/chat/completions", {
+    const response = await fetch(`${liteLlmBaseUrl || "https://api.groq.com/openai/v1"}/chat/completions`, {
       method: "POST",
       headers: {
         "Authorization": `Bearer ${apiKey}`,
@@ -147,7 +180,7 @@ Respond ONLY with a JSON object in this exact format:
           },
           {
             role: "user",
-            content: `Food: ${foodName}, Quantity: ${quantity || "1 serving"}`
+            content: `Food: ${validFoodName}, Quantity: ${validQuantity || "1 serving"}`
           }
         ],
         response_format: { type: "json_object" },
@@ -161,18 +194,19 @@ Respond ONLY with a JSON object in this exact format:
       throw new Error(`Groq API responded with status ${response.status}: ${errorText}`);
     }
 
-    const data = await response.json();
-    const content = data.choices?.[0]?.message?.content;
+    const data: unknown = await response.json();
+    const content = getCompletionContent(data);
     if (!content) {
       throw new Error("Empty response from estimation model.");
     }
 
-    const parsed = JSON.parse(content);
+    const parsed: unknown = JSON.parse(content);
+    if (!isMacroResponse(parsed)) throw new Error("Estimation model returned invalid nutrition data.");
     return {
-      calories: Math.round(parsed.calories || 0),
-      protein: Number(parsed.protein || 0),
-      carbs: Number(parsed.carbs || 0),
-      fat: Number(parsed.fat || 0),
+      calories: Math.round(requireNumber(parsed.calories, "Calories", 0, 10000)),
+      protein: requireNumber(parsed.protein, "Protein", 0, 1000),
+      carbs: requireNumber(parsed.carbs, "Carbs", 0, 2000),
+      fat: requireNumber(parsed.fat, "Fat", 0, 1000),
       source: 'llm',
       modelUsed
     };
@@ -193,20 +227,27 @@ export async function addDietLog(
   fat: number,
   source: 'llm' | 'manual_override'
 ) {
-  if (!date || !foodName || isNaN(calories)) {
-    throw new Error("Invalid input data.");
-  }
+  await assertAuthorized();
+  const validDate = requireDate(date);
+  const validFoodName = requireText(foodName, "Food name");
+  const validQuantity = optionalText(quantity, "Quantity", 100);
+  const validCalories = requireNumber(calories, "Calories", 0, 10000);
+  const validProtein = requireNumber(protein, "Protein", 0, 1000);
+  const validCarbs = requireNumber(carbs, "Carbs", 0, 2000);
+  const validFat = requireNumber(fat, "Fat", 0, 1000);
 
   // 1. Insert into diet_logs
   await query(
     `INSERT INTO diet_logs (logged_date, food_name, quantity, calories, protein_g, carbs_g, fat_g, source) 
      VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`,
-    [date, foodName, quantity || null, calories, protein, carbs, fat, source]
+    [validDate, validFoodName, validQuantity, validCalories, validProtein, validCarbs, validFat, source]
   );
 
   // 2. Cache the normalized name with these final values (upsert)
-  const normalized = foodName.toLowerCase().trim();
-  const modelUsed = source === 'llm' ? 'groq/llama-3.3-70b' : 'manual_override';
+  const normalized = foodCacheKey(validFoodName, validQuantity ?? "");
+  const modelUsed = source === 'llm'
+    ? (process.env.LITELLM_MODEL || 'groq/llama-3.3-70b-versatile')
+    : 'manual_override';
   await query(
     `INSERT INTO food_cache (normalized_name, calories, protein_g, carbs_g, fat_g, model_used) 
      VALUES ($1, $2, $3, $4, $5, $6) 
@@ -217,13 +258,15 @@ export async function addDietLog(
        carbs_g = EXCLUDED.carbs_g, 
        fat_g = EXCLUDED.fat_g, 
        model_used = EXCLUDED.model_used`,
-    [normalized, calories, protein, carbs, fat, modelUsed]
+    [normalized, validCalories, validProtein, validCarbs, validFat, modelUsed]
   );
 
   revalidatePath("/");
 }
 
 export async function deleteDietLog(id: string) {
+  await assertAuthorized();
+  requireText(id, "Log ID", 100);
   await query(`DELETE FROM diet_logs WHERE id = $1`, [id]);
   revalidatePath("/");
 }
@@ -268,6 +311,8 @@ export interface DietLogRow {
 
 // 5. Fetch Actions for Dashboard v0
 export async function getDashboardData(dateStr: string) {
+  await assertAuthorized();
+  requireDate(dateStr);
   const [weightLogs, exerciseLogs, stepsLogs, dietLogs] = await Promise.all([
     query<WeightLogRow>(`SELECT * FROM weight_logs ORDER BY logged_date DESC LIMIT 30`),
     query<ExerciseLogRow>(`SELECT * FROM exercise_logs ORDER BY logged_date DESC, created_at DESC LIMIT 30`),
@@ -321,14 +366,12 @@ export async function getDashboardData(dateStr: string) {
 }
 
 export async function verifyPasscode(passcode: string): Promise<boolean> {
-  const { cookies } = await import("next/headers");
   const sharedSecret = process.env.SHARED_SECRET;
-  if (!sharedSecret) {
-    return true;
-  }
+  if (!sharedSecret || !passcode) return false;
 
-  if (passcode === sharedSecret) {
-    cookies().set("shared_secret_session", sharedSecret, {
+  if (constantTimeEqual(passcode, sharedSecret)) {
+    const cookieStore = await cookies();
+    cookieStore.set(SESSION_COOKIE, await createSessionToken(sharedSecret), {
       path: "/",
       httpOnly: true,
       secure: process.env.NODE_ENV === "production",
@@ -339,4 +382,27 @@ export async function verifyPasscode(passcode: string): Promise<boolean> {
   }
 
   return false;
+}
+
+interface MacroResponse {
+  calories: number;
+  protein: number;
+  carbs: number;
+  fat: number;
+}
+
+function isMacroResponse(value: unknown): value is MacroResponse {
+  if (!value || typeof value !== "object") return false;
+  const candidate = value as Record<string, unknown>;
+  return ["calories", "protein", "carbs", "fat"].every((key) => typeof candidate[key] === "number");
+}
+
+function getCompletionContent(value: unknown): string | null {
+  if (!value || typeof value !== "object") return null;
+  const choices = (value as Record<string, unknown>).choices;
+  if (!Array.isArray(choices) || !choices[0] || typeof choices[0] !== "object") return null;
+  const message = (choices[0] as Record<string, unknown>).message;
+  if (!message || typeof message !== "object") return null;
+  const content = (message as Record<string, unknown>).content;
+  return typeof content === "string" ? content : null;
 }

@@ -22,6 +22,10 @@ Maps to ECC's content-hash-cache-pattern skill.
 LiteLLM is wired in from the start so switching is a config change, not a rewrite — but the
 OpenAI fallback path is not built until Phase 3, and only if Groq's estimation accuracy
 proves insufficient in practice. Don't build the fallback speculatively.
+The Next.js deployment uses an OpenAI-compatible LiteLLM proxy whenever
+`LITELLM_BASE_URL` and `LITELLM_API_KEY` are configured. Direct Groq transport remains
+available for a self-contained personal deployment. Both paths are cache-first and use
+Groq only; no OpenAI fallback is enabled.
 Maps to ECC's cost-aware-llm-pipeline skill.
 
 **D005 — Steps and exercise: manual entry only for MVP.**
@@ -44,3 +48,9 @@ required before the first real session.
 **D008 — Mobile Compatibility and Theme Toggle Layout Overhaul.**
 Rationale: To ensure high contrast, proper spacing, and optimal mobile/desktop usage, the 4 manual logging forms were consolidated into a unified Dialog modal with a tabbed layout. The dashboard body now focuses on the timeline activity feed and analytics charts. A theme toggle was added to the header to dynamically switch between dark and light modes, updating both Tailwind layout classes and Recharts grid/label/tooltip colors.
 
+**D009 — Public repository, gated deployment.**
+The source repository may be public, but the deployed dashboard must fail closed unless
+`DATABASE_URL`, `GROQ_API_KEY`, and `SHARED_SECRET` are configured server-side. The app keeps
+the single-user model from D006: no accounts, `user_id` columns, Supabase Auth, or RLS. A
+signed, HTTP-only session cookie grants access after the shared secret is verified. Server
+Actions independently enforce the session so middleware is not the sole security boundary.

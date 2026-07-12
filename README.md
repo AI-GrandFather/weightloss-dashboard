@@ -1,36 +1,50 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# WeightLoss Dashboard
 
-## Getting Started
+A private, single-user health dashboard built with Next.js, TypeScript, Postgres,
+Tailwind, shadcn/ui, Recharts, and a cache-first Groq nutrition estimator.
 
-First, run the development server:
+The source can be public. The deployed dashboard must remain protected by its shared-secret
+gate because it stores personal health data.
+
+## Local setup
+
+1. Use Node.js 22 or newer.
+2. Run `npm ci`.
+3. Copy `.env.example` to `.env` and enter server-only credentials.
+4. Apply `schema.sql` to the Postgres database.
+5. Run `npm run dev` and open `http://localhost:3000`.
+
+Never commit `.env`. Client-side Supabase credentials are not required because all database
+access runs on the server through `DATABASE_URL`.
+
+## Verification
+
+Run the complete release gate:
 
 ```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+npm run check
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+This runs ESLint, TypeScript, unit tests, and the optimized production build.
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+## Vercel deployment
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+Import the GitHub repository into Vercel and configure these Production environment values:
 
-## Learn More
+- `DATABASE_URL`
+- `GROQ_API_KEY`
+- `SHARED_SECRET` — use a long, random passphrase
 
-To learn more about Next.js, take a look at the following resources:
+Optional LiteLLM proxy values are documented in `.env.example`. The application fails closed
+when `DATABASE_URL` or `SHARED_SECRET` is missing. Vercel automatically builds the Next.js app
+on every push to `main`; pull requests receive preview deployments.
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+Before entering real data, verify that an incognito request redirects to `/gate`, an invalid
+passcode remains rejected, and the correct passcode unlocks the dashboard.
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+## Rollback
 
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+Use Vercel's Deployments page to promote the last known-good deployment. This release does not
+run database migrations automatically, so an application rollback does not mutate stored data.
+Database schema changes must be reviewed and applied separately; confirm before destructive
+database operations.

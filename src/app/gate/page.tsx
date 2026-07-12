@@ -68,8 +68,11 @@ export default function GatePage() {
         <form onSubmit={handleSubmit}>
           <CardContent className="space-y-4 pt-2">
             <div className="space-y-1">
+              <label htmlFor="dashboard-passcode" className="sr-only">Dashboard passcode</label>
               <Input
+                id="dashboard-passcode"
                 type="password"
+                autoComplete="current-password"
                 placeholder="••••••••"
                 value={passcode}
                 onChange={(e) => setPasscode(e.target.value)}

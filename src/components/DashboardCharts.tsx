@@ -1,6 +1,5 @@
 "use client";
 
-import { useEffect, useState } from "react";
 import {
   LineChart,
   Line,
@@ -36,20 +35,6 @@ export default function DashboardCharts({
   stepsGoal,
   theme
 }: DashboardChartsProps) {
-  const [isMounted, setIsMounted] = useState(false);
-
-  useEffect(() => {
-    setIsMounted(true);
-  }, []);
-
-  if (!isMounted) {
-    return (
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6 min-h-[400px] items-center justify-center text-slate-500 text-sm italic">
-        Loading charts...
-      </div>
-    );
-  }
-
   const isDark = theme === 'dark';
   const gridColor = isDark ? '#1e293b' : '#e2e8f0';
   const axisColor = isDark ? '#64748b' : '#475569';

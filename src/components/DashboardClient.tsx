@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import dynamic from "next/dynamic";
 import { 
   addWeightLog, 
   addExerciseLog, 
@@ -44,7 +45,12 @@ import {
   Sun,
   Moon
 } from "lucide-react";
-import DashboardCharts from "./DashboardCharts";
+import { csvCell } from "@/lib/csv";
+
+const DashboardCharts = dynamic(() => import("./DashboardCharts"), {
+  loading: () => <p className="py-16 text-center text-sm text-slate-500">Loading charts…</p>,
+  ssr: false,
+});
 
 interface DashboardClientProps {
   initialWeightLogs: WeightLogRow[];
@@ -79,6 +85,7 @@ export default function DashboardClient({
   // Loading & dialog states
   const [loading, setLoading] = useState<string | null>(null);
   const [errorMsg, setErrorMsg] = useState<{ [key: string]: string }>({});
+  const [deleteError, setDeleteError] = useState("");
   const [goalsOpen, setGoalsOpen] = useState(false);
   const [logOpen, setLogOpen] = useState(false);
   const [logTab, setLogTab] = useState<'diet' | 'weight' | 'steps' | 'exercise'>('diet');
@@ -93,6 +100,8 @@ export default function DashboardClient({
     if (typeof window !== "undefined") {
       // Goals
       const savedCals = localStorage.getItem("goals_calories");
+      // Hydrate browser-only preferences after the server render.
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       if (savedCals) setCaloriesGoal(Number(savedCals));
       const savedSteps = localStorage.getItem("goals_steps");
       if (savedSteps) setStepsGoal(Number(savedSteps));
@@ -440,15 +449,19 @@ export default function DashboardClient({
 
   // Delete Handlers
   const handleWeightDelete = async (id: string) => {
+    if (!window.confirm("Delete this weight log? This cannot be undone.")) return;
+    setDeleteError("");
     try {
       await deleteWeightLog(id);
       setWeightLogs(prev => prev.filter(w => w.id !== id));
     } catch (err) {
-      console.error(err);
+      setDeleteError(err instanceof Error ? err.message : "Failed to delete the weight log.");
     }
   };
 
   const handleStepsDelete = async (dateStr: string) => {
+    if (!window.confirm("Delete this steps log? This cannot be undone.")) return;
+    setDeleteError("");
     try {
       await deleteDailySteps(dateStr);
       setStepsLogs(prev => {
@@ -458,25 +471,29 @@ export default function DashboardClient({
         });
       });
     } catch (err) {
-      console.error(err);
+      setDeleteError(err instanceof Error ? err.message : "Failed to delete the steps log.");
     }
   };
 
   const handleExerciseDelete = async (id: string) => {
+    if (!window.confirm("Delete this exercise log? This cannot be undone.")) return;
+    setDeleteError("");
     try {
       await deleteExerciseLog(id);
       setExerciseLogs(prev => prev.filter(e => e.id !== id));
     } catch (err) {
-      console.error(err);
+      setDeleteError(err instanceof Error ? err.message : "Failed to delete the exercise log.");
     }
   };
 
   const handleDietDelete = async (id: string) => {
+    if (!window.confirm("Delete this diet log? This cannot be undone.")) return;
+    setDeleteError("");
     try {
       await deleteDietLog(id);
       setDietLogs(prev => prev.filter(d => d.id !== id));
     } catch (err) {
-      console.error(err);
+      setDeleteError(err instanceof Error ? err.message : "Failed to delete the diet log.");
     }
   };
 
@@ -497,28 +514,28 @@ export default function DashboardClient({
     csvContent += "WEIGHT LOGS\nDate,Weight (kg),Note\n";
     weightLogs.forEach(w => {
       const wDate = w.logged_date instanceof Date ? w.logged_date.toISOString().split('T')[0] : String(w.logged_date);
-      csvContent += `${wDate},${w.weight_kg},\"${w.note || ''}\"\n`;
+      csvContent += `${csvCell(wDate)},${csvCell(w.weight_kg)},${csvCell(w.note)}\n`;
     });
     
     // Steps logs
     csvContent += "\nDAILY STEPS LOGS\nDate,Steps\n";
     stepsLogs.forEach(s => {
       const sDate = s.logged_date instanceof Date ? s.logged_date.toISOString().split('T')[0] : String(s.logged_date);
-      csvContent += `${sDate},${s.steps}\n`;
+      csvContent += `${csvCell(sDate)},${csvCell(s.steps)}\n`;
     });
 
     // Exercise logs
     csvContent += "\nEXERCISE LOGS\nDate,Type,Duration (mins),Distance (km),Calories Burned,Note\n";
     exerciseLogs.forEach(e => {
       const eDate = e.logged_date instanceof Date ? e.logged_date.toISOString().split('T')[0] : String(e.logged_date);
-      csvContent += `${eDate},${e.exercise_type},${e.duration_minutes || ''},${e.distance_km || ''},${e.calories_burned || ''},\"${e.note || ''}\"\n`;
+      csvContent += [eDate, e.exercise_type, e.duration_minutes, e.distance_km, e.calories_burned, e.note].map(csvCell).join(",") + "\n";
     });
 
     // Diet logs
     csvContent += "\nDIET LOGS\nDate,Food Name,Quantity,Calories (kcal),Protein (g),Carbs (g),Fat (g),Source\n";
     dietLogs.forEach(d => {
       const dDate = d.logged_date instanceof Date ? d.logged_date.toISOString().split('T')[0] : String(d.logged_date);
-      csvContent += `${dDate},\"${d.food_name}\",\"${d.quantity || ''}\",${d.calories},${d.protein_g || 0},${d.carbs_g || 0},${d.fat_g || 0},${d.source}\n`;
+      csvContent += [dDate, d.food_name, d.quantity, d.calories, d.protein_g, d.carbs_g, d.fat_g, d.source].map(csvCell).join(",") + "\n";
     });
 
     const encodedUri = encodeURI(csvContent);
@@ -563,24 +580,25 @@ export default function DashboardClient({
       
       {/* Top Header */}
       <header className="border-b border-slate-200 dark:border-slate-900 bg-white/80 dark:bg-slate-950/85 backdrop-blur sticky top-0 z-40 transition-colors">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
+        <div className="max-w-7xl mx-auto px-3 sm:px-6 lg:px-8 h-16 flex items-center justify-between gap-2">
           
-          <div className="flex items-center gap-3">
+          <div className="flex min-w-0 items-center gap-2 sm:gap-3">
             <div className="h-9 w-9 rounded-xl bg-gradient-to-tr from-indigo-600 to-violet-600 flex items-center justify-center shadow-md shadow-indigo-600/25">
               <Scale className="h-4 w-4 text-white" />
             </div>
-            <h1 className="text-lg font-bold tracking-tight bg-gradient-to-r from-slate-900 via-slate-800 to-slate-600 dark:from-white dark:via-slate-200 dark:to-slate-450 bg-clip-text text-transparent">
+            <h1 className="hidden truncate text-lg font-bold tracking-tight bg-gradient-to-r from-slate-900 via-slate-800 to-slate-600 dark:from-white dark:via-slate-200 dark:to-slate-400 bg-clip-text text-transparent sm:block">
               WeightLoss Dashboard
             </h1>
           </div>
 
-          <div className="flex items-center gap-3">
+          <div className="flex shrink-0 items-center gap-1.5 sm:gap-3">
             
             {/* Theme Toggle */}
             <Button
               variant="outline"
               size="icon"
               onClick={() => setTheme(prev => prev === 'dark' ? 'light' : 'dark')}
+              aria-label={`Switch to ${theme === 'dark' ? 'light' : 'dark'} theme`}
               className="border-slate-200 dark:border-slate-850 hover:bg-slate-100 dark:hover:bg-slate-900 bg-white dark:bg-slate-950 text-slate-600 dark:text-slate-300 h-9 w-9"
             >
               {theme === 'dark' ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
@@ -596,9 +614,9 @@ export default function DashboardClient({
                 }
               >
                 <Plus className="h-4 w-4" />
-                <span>Log Activity</span>
+                <span className="hidden min-[360px]:inline">Log Activity</span>
               </DialogTrigger>
-              <DialogContent className="bg-white dark:bg-slate-950 border border-slate-200 dark:border-slate-850 text-slate-900 dark:text-slate-100 max-w-md p-6 rounded-2xl">
+              <DialogContent className="w-[calc(100%-2rem)] max-h-[calc(100dvh-2rem)] overflow-y-auto bg-white dark:bg-slate-950 border border-slate-200 dark:border-slate-800 text-slate-900 dark:text-slate-100 max-w-md p-4 sm:p-6 rounded-2xl">
                 <DialogHeader className="pb-3 border-b border-slate-150 dark:border-slate-850">
                   <DialogTitle className="text-lg font-bold">Log New Entry</DialogTitle>
                   <DialogDescription className="text-slate-500 dark:text-slate-400 text-xs">
@@ -616,10 +634,11 @@ export default function DashboardClient({
                         key={t.id}
                         type="button"
                         onClick={() => setLogTab(t.id)}
+                        aria-pressed={active}
                         className={`flex-1 flex items-center justify-center gap-1.5 py-2 px-3 rounded-lg text-xs font-semibold transition ${
                           active 
                             ? 'bg-indigo-600 text-white shadow-sm' 
-                            : 'text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-slate-250 hover:bg-slate-200/50 dark:hover:bg-slate-900/50'
+                            : 'text-slate-600 dark:text-slate-300 hover:text-slate-800 dark:hover:text-slate-200 hover:bg-slate-200/50 dark:hover:bg-slate-900/50'
                         }`}
                       >
                         <Icon className="h-3.5 w-3.5" />
@@ -922,6 +941,7 @@ export default function DashboardClient({
               variant="outline" 
               size="sm" 
               onClick={handleCSVExport}
+              aria-label="Export CSV"
               className="border-slate-200 dark:border-slate-850 hover:bg-slate-100 dark:hover:bg-slate-900 bg-white dark:bg-slate-950 text-slate-600 dark:text-slate-300 flex items-center gap-2 h-9 px-3"
             >
               <Download className="h-4 w-4" />
@@ -935,13 +955,14 @@ export default function DashboardClient({
                   <Button 
                     variant="outline" 
                     size="icon" 
+                    aria-label="Open goal settings"
                     className="border-slate-200 dark:border-slate-850 hover:bg-slate-100 dark:hover:bg-slate-900 bg-white dark:bg-slate-950 text-slate-600 dark:text-slate-300 h-9 w-9"
                   />
                 }
               >
                 <Settings className="h-4 w-4" />
               </DialogTrigger>
-              <DialogContent className="bg-white dark:bg-slate-950 border border-slate-200 dark:border-slate-850 text-slate-900 dark:text-slate-100 max-w-sm p-6 rounded-2xl">
+              <DialogContent className="w-[calc(100%-2rem)] max-h-[calc(100dvh-2rem)] overflow-y-auto bg-white dark:bg-slate-950 border border-slate-200 dark:border-slate-800 text-slate-900 dark:text-slate-100 max-w-sm p-6 rounded-2xl">
                 <DialogHeader className="pb-3 border-b border-slate-150 dark:border-slate-850">
                   <DialogTitle className="text-lg font-bold">Set Daily Goals</DialogTitle>
                   <DialogDescription className="text-slate-500 dark:text-slate-400 text-xs">
@@ -998,20 +1019,23 @@ export default function DashboardClient({
         {/* Date Selector & Tab Switcher Bar */}
         <div className="flex flex-col md:flex-row items-center justify-between gap-4 bg-white dark:bg-slate-900/40 border border-slate-200 dark:border-slate-900 p-4 rounded-2xl shadow-sm dark:shadow-none transition-colors">
           {/* Left: Date controls */}
-          <div className="flex items-center gap-2">
+          <div className="flex flex-wrap items-center justify-center gap-2">
             <Calendar className="h-5 w-5 text-indigo-500 dark:text-indigo-400" />
             <span className="font-semibold text-slate-700 dark:text-slate-300 text-sm hidden sm:inline">Target Date:</span>
-            <input 
+            <label htmlFor="target-date" className="sr-only">Target date</label>
+            <input
+              id="target-date"
               type="date" 
               value={selectedDate}
               onChange={(e) => setSelectedDate(e.target.value)}
-              className="bg-white dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-lg px-3 py-1.5 text-sm text-slate-800 dark:text-slate-200 focus:outline-none focus:border-indigo-500 transition-colors"
+              className="bg-white dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-lg px-3 py-1.5 text-base sm:text-sm text-slate-800 dark:text-slate-200 focus:outline-none focus:border-indigo-500 transition-colors"
             />
             <div className="flex items-center gap-1 ml-2">
               <Button 
                 variant="outline" 
                 size="icon" 
                 onClick={() => changeDate(-1)}
+                aria-label="Previous day"
                 className="border-slate-200 dark:border-slate-850 hover:bg-slate-100 dark:hover:bg-slate-950 bg-white dark:bg-slate-900/60 h-8 w-8 text-slate-600 dark:text-slate-300"
               >
                 <ChevronLeft className="h-4 w-4" />
@@ -1028,6 +1052,7 @@ export default function DashboardClient({
                 variant="outline" 
                 size="icon" 
                 onClick={() => changeDate(1)}
+                aria-label="Next day"
                 className="border-slate-200 dark:border-slate-850 hover:bg-slate-100 dark:hover:bg-slate-950 bg-white dark:bg-slate-900/60 h-8 w-8 text-slate-600 dark:text-slate-300"
               >
                 <ChevronRight className="h-4 w-4" />
@@ -1036,13 +1061,15 @@ export default function DashboardClient({
           </div>
 
           {/* Right: Tab selectors */}
-          <div className="flex bg-slate-100 dark:bg-slate-950/60 border border-slate-200 dark:border-slate-800 p-1 rounded-xl">
+          <div className="flex w-full bg-slate-100 dark:bg-slate-950/60 border border-slate-200 dark:border-slate-800 p-1 rounded-xl sm:w-auto" role="tablist" aria-label="Dashboard view">
             <button
               onClick={() => setActiveTab('feed')}
-              className={`flex items-center gap-1.5 px-4 py-1.5 rounded-lg text-xs font-bold transition ${
+              role="tab"
+              aria-selected={activeTab === 'feed'}
+              className={`flex flex-1 items-center justify-center gap-1.5 px-2 sm:px-4 py-2 rounded-lg text-xs font-bold transition ${
                 activeTab === 'feed' 
                   ? 'bg-indigo-600 text-white shadow-sm' 
-                  : 'text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-slate-200'
+                  : 'text-slate-600 dark:text-slate-300 hover:text-slate-800 dark:hover:text-slate-200'
               }`}
             >
               <Activity className="h-3.5 w-3.5" />
@@ -1050,10 +1077,12 @@ export default function DashboardClient({
             </button>
             <button
               onClick={() => setActiveTab('analytics')}
-              className={`flex items-center gap-1.5 px-4 py-1.5 rounded-lg text-xs font-bold transition ${
+              role="tab"
+              aria-selected={activeTab === 'analytics'}
+              className={`flex flex-1 items-center justify-center gap-1.5 px-2 sm:px-4 py-2 rounded-lg text-xs font-bold transition ${
                 activeTab === 'analytics' 
                   ? 'bg-indigo-600 text-white shadow-sm' 
-                  : 'text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-slate-200'
+                  : 'text-slate-600 dark:text-slate-300 hover:text-slate-800 dark:hover:text-slate-200'
               }`}
             >
               <TrendingUp className="h-3.5 w-3.5" />
@@ -1082,11 +1111,11 @@ export default function DashboardClient({
                   {stats.weight && weightGoal && (
                     <div className="text-xs mt-2 font-semibold">
                       {stats.weight > weightGoal ? (
-                        <span className="text-amber-600 dark:text-amber-400">+{Math.round((stats.weight - weightGoal) * 10) / 10} kg above target</span>
+                        <span className="text-amber-700 dark:text-amber-400">+{Math.round((stats.weight - weightGoal) * 10) / 10} kg above target</span>
                       ) : stats.weight < weightGoal ? (
-                        <span className="text-emerald-600 dark:text-emerald-400">-{Math.round((weightGoal - stats.weight) * 10) / 10} kg under target</span>
+                        <span className="text-emerald-700 dark:text-emerald-400">-{Math.round((weightGoal - stats.weight) * 10) / 10} kg under target</span>
                       ) : (
-                        <span className="text-emerald-600 dark:text-emerald-400">On target! 🎉</span>
+                        <span className="text-emerald-700 dark:text-emerald-400">On target! 🎉</span>
                       )}
                     </div>
                   )}
@@ -1116,12 +1145,12 @@ export default function DashboardClient({
                   <div className="text-xs mt-2 flex justify-between items-center font-bold">
                     <span>
                       {caloriesGoal - stats.dietCalories >= 0 ? (
-                        <span className="text-emerald-600 dark:text-emerald-400">{caloriesGoal - stats.dietCalories} kcal left</span>
+                        <span className="text-emerald-700 dark:text-emerald-400">{caloriesGoal - stats.dietCalories} kcal left</span>
                       ) : (
                         <span className="text-rose-600 dark:text-rose-400">{Math.abs(caloriesGoal - stats.dietCalories)} kcal over</span>
                       )}
                     </span>
-                    <span className="text-slate-400 dark:text-slate-500 text-[10px]">Goal: {caloriesGoal}</span>
+                    <span className="text-slate-600 dark:text-slate-400 text-[10px]">Goal: {caloriesGoal}</span>
                   </div>
                   <div className="text-[10px] text-slate-500 dark:text-slate-400 mt-2 flex justify-between gap-1 border-t border-slate-100 dark:border-slate-850 pt-2 font-semibold">
                     <span>P: {stats.dietProtein}g</span>
@@ -1150,11 +1179,11 @@ export default function DashboardClient({
                   </div>
                   <p className="text-xs mt-2 flex justify-between font-bold">
                     {stepsGoal - stats.steps > 0 ? (
-                      <span className="text-amber-600 dark:text-amber-400">{(stepsGoal - stats.steps).toLocaleString()} left</span>
+                      <span className="text-amber-700 dark:text-amber-400">{(stepsGoal - stats.steps).toLocaleString()} left</span>
                     ) : (
-                      <span className="text-emerald-600 dark:text-emerald-400">Goal met! 🎉</span>
+                      <span className="text-emerald-700 dark:text-emerald-400">Goal met! 🎉</span>
                     )}
-                    <span className="text-slate-400 dark:text-slate-500 text-[10px]">Goal: {stepsGoal.toLocaleString()}</span>
+                    <span className="text-slate-600 dark:text-slate-400 text-[10px]">Goal: {stepsGoal.toLocaleString()}</span>
                   </p>
                 </CardContent>
               </Card>
@@ -1190,13 +1219,19 @@ export default function DashboardClient({
                   Today&apos;s Timeline ({selectedDate})
                 </h2>
 
+                {deleteError && (
+                  <p role="alert" className="rounded-lg border border-rose-500/20 bg-rose-500/10 p-3 text-sm text-rose-600 dark:text-rose-400">
+                    {deleteError}
+                  </p>
+                )}
+
                 <div className="space-y-4">
                   {/* Empty state */}
                   {!activeWeightLog && !activeStepsLog && activeExerciseLogs.length === 0 && activeDietLogs.length === 0 && (
                     <div className="border border-dashed border-slate-200 dark:border-slate-850 bg-white dark:bg-slate-900/10 p-12 text-center rounded-2xl transition-colors">
                       <Calendar className="h-8 w-8 text-slate-400 dark:text-slate-600 mx-auto mb-3" />
                       <p className="text-slate-600 dark:text-slate-400 font-semibold">No active logs for this date</p>
-                      <p className="text-slate-400 dark:text-slate-650 text-xs mt-1">
+                      <p className="text-slate-600 dark:text-slate-400 text-xs mt-1">
                         Click the &quot;+ Log Activity&quot; button above to add weight, steps, exercise or food records.
                       </p>
                     </div>
@@ -1221,6 +1256,7 @@ export default function DashboardClient({
                         variant="ghost" 
                         size="icon" 
                         onClick={() => handleWeightDelete(activeWeightLog.id)}
+                        aria-label="Delete weight log"
                         className="text-slate-400 hover:text-rose-500 hover:bg-rose-500/10 h-8 w-8 rounded-lg"
                       >
                         <Trash2 className="h-4 w-4" />
@@ -1246,6 +1282,7 @@ export default function DashboardClient({
                         variant="ghost" 
                         size="icon" 
                         onClick={() => handleStepsDelete(selectedDate)}
+                        aria-label="Delete steps log"
                         className="text-slate-400 hover:text-rose-500 hover:bg-rose-500/10 h-8 w-8 rounded-lg"
                       >
                         <Trash2 className="h-4 w-4" />
@@ -1279,6 +1316,7 @@ export default function DashboardClient({
                         variant="ghost" 
                         size="icon" 
                         onClick={() => handleExerciseDelete(e.id)}
+                        aria-label="Delete exercise log"
                         className="text-slate-400 hover:text-rose-500 hover:bg-rose-500/10 h-8 w-8 rounded-lg"
                       >
                         <Trash2 className="h-4 w-4" />
@@ -1312,6 +1350,7 @@ export default function DashboardClient({
                         variant="ghost" 
                         size="icon" 
                         onClick={() => handleDietDelete(d.id)}
+                        aria-label="Delete diet log"
                         className="text-slate-400 hover:text-rose-500 hover:bg-rose-500/10 h-8 w-8 rounded-lg"
                       >
                         <Trash2 className="h-4 w-4" />
@@ -1376,7 +1415,7 @@ export default function DashboardClient({
                           })}
                           {weightLogs.length === 0 && (
                             <tr>
-                              <td colSpan={2} className="p-6 text-center text-slate-400 dark:text-slate-600 italic">
+                              <td colSpan={2} className="p-6 text-center text-slate-600 dark:text-slate-400 italic">
                                 No logged weight yet
                               </td>
                             </tr>
