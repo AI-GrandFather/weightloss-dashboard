@@ -47,6 +47,8 @@ import {
 } from "lucide-react";
 import { csvCell } from "@/lib/csv";
 
+import { useTheme } from "next-themes";
+
 const DashboardCharts = dynamic(() => import("./DashboardCharts"), {
   loading: () => <p className="py-16 text-center text-sm text-slate-500">Loading charts…</p>,
   ssr: false,
@@ -66,7 +68,9 @@ export default function DashboardClient({
   initialDietLogs
 }: DashboardClientProps) {
   // Theme state
-  const [theme, setTheme] = useState<'light' | 'dark'>('dark');
+  const { theme, setTheme, systemTheme } = useTheme();
+  const [mounted, setMounted] = useState(false);
+  const currentTheme = theme === 'system' ? systemTheme : theme;
 
   // Tabs: 'feed' | 'analytics'
   const [activeTab, setActiveTab] = useState<'feed' | 'analytics'>('feed');
@@ -97,39 +101,18 @@ export default function DashboardClient({
 
   // Initialize theme and goals on mount
   useEffect(() => {
+    setMounted(true);
     if (typeof window !== "undefined") {
       // Goals
       const savedCals = localStorage.getItem("goals_calories");
-      // Hydrate browser-only preferences after the server render.
-      // eslint-disable-next-line react-hooks/set-state-in-effect
       if (savedCals) setCaloriesGoal(Number(savedCals));
       const savedSteps = localStorage.getItem("goals_steps");
       if (savedSteps) setStepsGoal(Number(savedSteps));
       const savedWeight = localStorage.getItem("goals_weight");
       if (savedWeight) setWeightGoal(Number(savedWeight));
-
-      // Theme
-      const savedTheme = localStorage.getItem("theme") as 'light' | 'dark' | null;
-      if (savedTheme) {
-        setTheme(savedTheme);
-      } else if (window.matchMedia('(prefers-color-scheme: dark)').matches) {
-        setTheme('dark');
-      } else {
-        setTheme('light');
-      }
     }
   }, []);
 
-  // Update HTML class when theme changes
-  useEffect(() => {
-    if (theme === 'dark') {
-      document.documentElement.classList.add('dark');
-      localStorage.setItem('theme', 'dark');
-    } else {
-      document.documentElement.classList.remove('dark');
-      localStorage.setItem('theme', 'light');
-    }
-  }, [theme]);
 
   // Form States
   // Weight Log
@@ -576,17 +559,17 @@ export default function DashboardClient({
   ] as const;
 
   return (
-    <div className="min-h-screen bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-slate-100 font-sans pb-16 transition-colors duration-200">
+    <div className="min-h-screen bg-gradient-to-br from-slate-50 to-indigo-50/30 dark:from-[#0a0a14] dark:to-[#120a1f] text-slate-900 dark:text-slate-100 font-sans pb-16 transition-colors duration-200 selection:bg-indigo-500/30">
       
       {/* Top Header */}
-      <header className="border-b border-slate-200 dark:border-slate-900 bg-white/80 dark:bg-slate-950/85 backdrop-blur sticky top-0 z-40 transition-colors">
+      <header className="border-b border-white/20 dark:border-white/5 bg-white/60 dark:bg-[#0a0a14]/60 backdrop-blur-xl sticky top-0 z-40 transition-colors shadow-sm dark:shadow-none">
         <div className="max-w-7xl mx-auto px-3 sm:px-6 lg:px-8 h-16 flex items-center justify-between gap-2">
           
           <div className="flex min-w-0 items-center gap-2 sm:gap-3">
-            <div className="h-9 w-9 rounded-xl bg-gradient-to-tr from-indigo-600 to-violet-600 flex items-center justify-center shadow-md shadow-indigo-600/25">
-              <Scale className="h-4 w-4 text-white" />
+            <div className="h-10 w-10 rounded-2xl bg-gradient-to-tr from-indigo-600 to-violet-500 flex items-center justify-center shadow-lg shadow-indigo-500/30">
+              <Scale className="h-5 w-5 text-white" />
             </div>
-            <h1 className="hidden truncate text-lg font-bold tracking-tight bg-gradient-to-r from-slate-900 via-slate-800 to-slate-600 dark:from-white dark:via-slate-200 dark:to-slate-400 bg-clip-text text-transparent sm:block">
+            <h1 className="hidden truncate text-xl font-extrabold tracking-tight bg-gradient-to-r from-slate-900 via-indigo-900 to-slate-800 dark:from-white dark:via-indigo-200 dark:to-slate-300 bg-clip-text text-transparent sm:block">
               WeightLoss Dashboard
             </h1>
           </div>
@@ -597,11 +580,11 @@ export default function DashboardClient({
             <Button
               variant="outline"
               size="icon"
-              onClick={() => setTheme(prev => prev === 'dark' ? 'light' : 'dark')}
-              aria-label={`Switch to ${theme === 'dark' ? 'light' : 'dark'} theme`}
+              onClick={() => setTheme(currentTheme === 'dark' ? 'light' : 'dark')}
+              aria-label={`Switch to ${currentTheme === 'dark' ? 'light' : 'dark'} theme`}
               className="border-slate-200 dark:border-slate-850 hover:bg-slate-100 dark:hover:bg-slate-900 bg-white dark:bg-slate-950 text-slate-600 dark:text-slate-300 h-9 w-9"
             >
-              {theme === 'dark' ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
+              {mounted && (currentTheme === 'dark' ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />)}
             </Button>
 
             {/* Log Activity Dialog */}
@@ -1017,7 +1000,7 @@ export default function DashboardClient({
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 mt-8 space-y-8">
         
         {/* Date Selector & Tab Switcher Bar */}
-        <div className="flex flex-col md:flex-row items-center justify-between gap-4 bg-white dark:bg-slate-900/40 border border-slate-200 dark:border-slate-900 p-4 rounded-2xl shadow-sm dark:shadow-none transition-colors">
+        <div className="flex flex-col md:flex-row items-center justify-between gap-4 bg-white/60 dark:bg-[#120a1f]/60 backdrop-blur-md border border-white/40 dark:border-white/10 p-4 rounded-2xl shadow-lg shadow-indigo-500/5 dark:shadow-none transition-colors">
           {/* Left: Date controls */}
           <div className="flex flex-wrap items-center justify-center gap-2">
             <Calendar className="h-5 w-5 text-indigo-500 dark:text-indigo-400" />
@@ -1098,7 +1081,7 @@ export default function DashboardClient({
             <section className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
               
               {/* Weight Card */}
-              <Card className="border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900/40 shadow-sm dark:shadow-none relative overflow-hidden transition-colors">
+              <Card className="border-white/40 dark:border-white/10 bg-white/60 dark:bg-[#120a1f]/60 backdrop-blur-xl shadow-xl shadow-indigo-500/5 dark:shadow-none relative overflow-hidden transition-all hover:-translate-y-1 hover:shadow-2xl hover:shadow-indigo-500/10">
                 <div className="absolute top-0 left-0 w-1.5 h-full bg-blue-500" />
                 <CardHeader className="flex flex-row items-center justify-between pb-2 space-y-0 p-5">
                   <CardTitle className="text-xs font-bold uppercase tracking-wider text-slate-450 dark:text-slate-400">Current Weight</CardTitle>
@@ -1126,7 +1109,7 @@ export default function DashboardClient({
               </Card>
 
               {/* Diet Card */}
-              <Card className="border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900/40 shadow-sm dark:shadow-none relative overflow-hidden transition-colors">
+              <Card className="border-white/40 dark:border-white/10 bg-white/60 dark:bg-[#120a1f]/60 backdrop-blur-xl shadow-xl shadow-indigo-500/5 dark:shadow-none relative overflow-hidden transition-all hover:-translate-y-1 hover:shadow-2xl hover:shadow-indigo-500/10">
                 <div className="absolute top-0 left-0 w-1.5 h-full bg-emerald-500" />
                 <CardHeader className="flex flex-row items-center justify-between pb-2 space-y-0 p-5">
                   <CardTitle className="text-xs font-bold uppercase tracking-wider text-slate-455 dark:text-slate-400">Diet Calories</CardTitle>
@@ -1161,7 +1144,7 @@ export default function DashboardClient({
               </Card>
 
               {/* Steps Card */}
-              <Card className="border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900/40 shadow-sm dark:shadow-none relative overflow-hidden transition-colors">
+              <Card className="border-white/40 dark:border-white/10 bg-white/60 dark:bg-[#120a1f]/60 backdrop-blur-xl shadow-xl shadow-indigo-500/5 dark:shadow-none relative overflow-hidden transition-all hover:-translate-y-1 hover:shadow-2xl hover:shadow-indigo-500/10">
                 <div className="absolute top-0 left-0 w-1.5 h-full bg-amber-500" />
                 <CardHeader className="flex flex-row items-center justify-between pb-2 space-y-0 p-5">
                   <CardTitle className="text-xs font-bold uppercase tracking-wider text-slate-455 dark:text-slate-400">Daily Steps</CardTitle>
@@ -1189,7 +1172,7 @@ export default function DashboardClient({
               </Card>
 
               {/* Exercise Card */}
-              <Card className="border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900/40 shadow-sm dark:shadow-none relative overflow-hidden transition-colors">
+              <Card className="border-white/40 dark:border-white/10 bg-white/60 dark:bg-[#120a1f]/60 backdrop-blur-xl shadow-xl shadow-indigo-500/5 dark:shadow-none relative overflow-hidden transition-all hover:-translate-y-1 hover:shadow-2xl hover:shadow-indigo-500/10">
                 <div className="absolute top-0 left-0 w-1.5 h-full bg-rose-500" />
                 <CardHeader className="flex flex-row items-center justify-between pb-2 space-y-0 p-5">
                   <CardTitle className="text-xs font-bold uppercase tracking-wider text-slate-455 dark:text-slate-400">Exercise Activity</CardTitle>
@@ -1215,6 +1198,63 @@ export default function DashboardClient({
               
               {/* Left Side: Activity Logs Feed (8 Columns) */}
               <div className="lg:col-span-8 space-y-4">
+                {/* Quick Add Bar */}
+                <div className="bg-white/80 dark:bg-slate-900/60 backdrop-blur-xl border border-slate-200/50 dark:border-slate-800/50 rounded-3xl p-4 sm:p-5 shadow-2xl shadow-indigo-500/5 dark:shadow-none flex flex-col gap-4 relative overflow-hidden group">
+                  <div className="absolute top-0 right-0 w-64 h-64 bg-indigo-500/10 dark:bg-indigo-500/20 blur-3xl rounded-full -mr-20 -mt-20 pointer-events-none transition-transform group-hover:scale-110" />
+                  
+                  <h3 className="text-sm font-bold text-slate-800 dark:text-slate-200 flex items-center gap-2 relative z-10">
+                    <Sparkles className="h-4 w-4 text-indigo-500" />
+                    Quick Log
+                  </h3>
+                  
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 relative z-10">
+                    <form onSubmit={handleWeightSubmit} className="flex gap-2">
+                      <Input 
+                        placeholder="Weight (kg)" 
+                        type="number" step="0.01" required
+                        value={weightVal} onChange={e => setWeightVal(e.target.value)}
+                        className="bg-white/90 dark:bg-slate-950/70 border-slate-200 dark:border-slate-800 focus-visible:ring-indigo-500 shadow-sm"
+                      />
+                      <Button type="submit" disabled={loading === 'weight' || !weightVal} className="bg-gradient-to-tr from-blue-600 to-blue-500 hover:to-blue-400 text-white shadow-md shadow-blue-500/20 shrink-0 border-0 transition-transform active:scale-95">
+                        <Scale className="h-4 w-4" />
+                      </Button>
+                    </form>
+                    
+                    <form onSubmit={handleStepsSubmit} className="flex gap-2">
+                      <Input 
+                        placeholder="Steps" 
+                        type="number" required
+                        value={stepsVal} onChange={e => setStepsVal(e.target.value)}
+                        className="bg-white/90 dark:bg-slate-950/70 border-slate-200 dark:border-slate-800 focus-visible:ring-indigo-500 shadow-sm"
+                      />
+                      <Button type="submit" disabled={loading === 'steps' || !stepsVal} className="bg-gradient-to-tr from-amber-600 to-amber-500 hover:to-amber-400 text-white shadow-md shadow-amber-500/20 shrink-0 border-0 transition-transform active:scale-95">
+                        <Footprints className="h-4 w-4" />
+                      </Button>
+                    </form>
+                    
+                    <form onSubmit={handleExerciseSubmit} className="flex gap-2">
+                      <Input 
+                        placeholder="Exercise (mins)" 
+                        type="number" required
+                        value={exDuration} onChange={e => setExDuration(e.target.value)}
+                        className="bg-white/90 dark:bg-slate-950/70 border-slate-200 dark:border-slate-800 focus-visible:ring-indigo-500 shadow-sm"
+                      />
+                      <Button type="submit" disabled={loading === 'exercise' || !exDuration} className="bg-gradient-to-tr from-rose-600 to-rose-500 hover:to-rose-400 text-white shadow-md shadow-rose-500/20 shrink-0 border-0 transition-transform active:scale-95">
+                        <Flame className="h-4 w-4" />
+                      </Button>
+                    </form>
+                  </div>
+                  
+                  {/* Validation errors for quick log */}
+                  {(errorMsg.weight || errorMsg.steps || errorMsg.exercise) && (
+                    <div className="text-rose-500 text-xs font-semibold relative z-10 flex flex-col gap-1 mt-1">
+                      {errorMsg.weight && <span>Weight error: {errorMsg.weight}</span>}
+                      {errorMsg.steps && <span>Steps error: {errorMsg.steps}</span>}
+                      {errorMsg.exercise && <span>Exercise error: {errorMsg.exercise}</span>}
+                    </div>
+                  )}
+                </div>
+
                 <h2 className="text-sm font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400 border-l-2 border-indigo-500 pl-2">
                   Today&apos;s Timeline ({selectedDate})
                 </h2>
@@ -1239,7 +1279,7 @@ export default function DashboardClient({
 
                   {/* Weight Log Item */}
                   {activeWeightLog && (
-                    <div className="bg-white dark:bg-slate-900/20 border border-slate-200 dark:border-slate-900 rounded-2xl p-4 flex items-center justify-between gap-4 shadow-sm dark:shadow-none transition-all hover:border-slate-300 dark:hover:border-slate-800">
+                    <div className="bg-white/60 dark:bg-[#120a1f]/60 backdrop-blur-md border border-white/40 dark:border-white/10 rounded-2xl p-4 flex items-center justify-between gap-4 shadow-xl shadow-indigo-500/5 dark:shadow-none transition-all hover:scale-[1.02] hover:shadow-2xl hover:shadow-indigo-500/10">
                       <div className="flex items-center gap-3">
                         <div className="h-10 w-10 bg-blue-500/10 border border-blue-500/20 text-blue-600 dark:text-blue-400 rounded-xl flex items-center justify-center">
                           <Scale className="h-5 w-5" />
@@ -1266,7 +1306,7 @@ export default function DashboardClient({
 
                   {/* Steps Log Item */}
                   {activeStepsLog && (
-                    <div className="bg-white dark:bg-slate-900/20 border border-slate-200 dark:border-slate-900 rounded-2xl p-4 flex items-center justify-between gap-4 shadow-sm dark:shadow-none transition-all hover:border-slate-300 dark:hover:border-slate-800">
+                    <div className="bg-white/60 dark:bg-[#120a1f]/60 backdrop-blur-md border border-white/40 dark:border-white/10 rounded-2xl p-4 flex items-center justify-between gap-4 shadow-xl shadow-indigo-500/5 dark:shadow-none transition-all hover:scale-[1.02] hover:shadow-2xl hover:shadow-indigo-500/10">
                       <div className="flex items-center gap-3">
                         <div className="h-10 w-10 bg-amber-500/10 border border-amber-500/20 text-amber-600 dark:text-amber-400 rounded-xl flex items-center justify-center">
                           <Footprints className="h-5 w-5" />
@@ -1292,7 +1332,7 @@ export default function DashboardClient({
 
                   {/* Exercise Log Item */}
                   {activeExerciseLogs.map(e => (
-                    <div key={e.id} className="bg-white dark:bg-slate-900/20 border border-slate-200 dark:border-slate-900 rounded-2xl p-4 flex items-center justify-between gap-4 shadow-sm dark:shadow-none transition-all hover:border-slate-300 dark:hover:border-slate-800">
+                    <div key={e.id} className="bg-white/60 dark:bg-[#120a1f]/60 backdrop-blur-md border border-white/40 dark:border-white/10 rounded-2xl p-4 flex items-center justify-between gap-4 shadow-xl shadow-indigo-500/5 dark:shadow-none transition-all hover:scale-[1.02] hover:shadow-2xl hover:shadow-indigo-500/10">
                       <div className="flex items-center gap-3">
                         <div className="h-10 w-10 bg-rose-500/10 border border-rose-500/20 text-rose-600 dark:text-rose-400 rounded-xl flex items-center justify-center">
                           <Flame className="h-5 w-5" />
@@ -1326,7 +1366,7 @@ export default function DashboardClient({
 
                   {/* Diet Log Item */}
                   {activeDietLogs.map(d => (
-                    <div key={d.id} className="bg-white dark:bg-slate-900/20 border border-slate-200 dark:border-slate-900 rounded-2xl p-4 flex items-center justify-between gap-4 shadow-sm dark:shadow-none transition-all hover:border-slate-300 dark:hover:border-slate-800">
+                    <div key={d.id} className="bg-white/60 dark:bg-[#120a1f]/60 backdrop-blur-md border border-white/40 dark:border-white/10 rounded-2xl p-4 flex items-center justify-between gap-4 shadow-xl shadow-indigo-500/5 dark:shadow-none transition-all hover:scale-[1.02] hover:shadow-2xl hover:shadow-indigo-500/10">
                       <div className="flex items-center gap-3">
                         <div className="h-10 w-10 bg-emerald-500/10 border border-emerald-500/20 text-emerald-600 dark:text-emerald-400 rounded-xl flex items-center justify-center">
                           <Utensils className="h-5 w-5" />
@@ -1368,7 +1408,7 @@ export default function DashboardClient({
                   Overview
                 </h2>
 
-                <Card className="border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900/40 shadow-sm dark:shadow-none">
+                <Card className="border-white/40 dark:border-white/10 bg-white/60 dark:bg-[#120a1f]/60 backdrop-blur-xl shadow-xl shadow-indigo-500/5 dark:shadow-none transition-all hover:shadow-2xl hover:shadow-indigo-500/10">
                   <CardHeader className="p-5 pb-3">
                     <CardTitle className="text-sm font-bold text-slate-700 dark:text-slate-300">Logging Consistency</CardTitle>
                   </CardHeader>
@@ -1390,7 +1430,7 @@ export default function DashboardClient({
                 </Card>
 
                 {/* Weight History Table */}
-                <Card className="border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900/40 shadow-sm dark:shadow-none">
+                <Card className="border-white/40 dark:border-white/10 bg-white/60 dark:bg-[#120a1f]/60 backdrop-blur-xl shadow-xl shadow-indigo-500/5 dark:shadow-none transition-all hover:shadow-2xl hover:shadow-indigo-500/10">
                   <CardHeader className="p-5 pb-3">
                     <CardTitle className="text-sm font-bold text-slate-700 dark:text-slate-300">Weight History (10 Logs)</CardTitle>
                   </CardHeader>
@@ -1438,7 +1478,7 @@ export default function DashboardClient({
             {/* Analytics Header Metrics */}
             <section className="grid grid-cols-1 md:grid-cols-3 gap-6">
               
-              <Card className="border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900/40 shadow-sm dark:shadow-none">
+              <Card className="border-white/40 dark:border-white/10 bg-white/60 dark:bg-[#120a1f]/60 backdrop-blur-xl shadow-xl shadow-indigo-500/5 dark:shadow-none transition-all hover:shadow-2xl hover:shadow-indigo-500/10">
                 <CardHeader className="p-5 pb-2">
                   <CardTitle className="text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">Current Logging Streak</CardTitle>
                 </CardHeader>
@@ -1452,7 +1492,7 @@ export default function DashboardClient({
                 </CardContent>
               </Card>
 
-              <Card className="border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900/40 shadow-sm dark:shadow-none">
+              <Card className="border-white/40 dark:border-white/10 bg-white/60 dark:bg-[#120a1f]/60 backdrop-blur-xl shadow-xl shadow-indigo-500/5 dark:shadow-none transition-all hover:shadow-2xl hover:shadow-indigo-500/10">
                 <CardHeader className="p-5 pb-2">
                   <CardTitle className="text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">Target Steps Goal</CardTitle>
                 </CardHeader>
@@ -1466,7 +1506,7 @@ export default function DashboardClient({
                 </CardContent>
               </Card>
 
-              <Card className="border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900/40 shadow-sm dark:shadow-none">
+              <Card className="border-white/40 dark:border-white/10 bg-white/60 dark:bg-[#120a1f]/60 backdrop-blur-xl shadow-xl shadow-indigo-500/5 dark:shadow-none transition-all hover:shadow-2xl hover:shadow-indigo-500/10">
                 <CardHeader className="p-5 pb-2">
                   <CardTitle className="text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">Calorie Target</CardTitle>
                 </CardHeader>
@@ -1490,7 +1530,7 @@ export default function DashboardClient({
               dietLogs={dietLogs}
               caloriesGoal={caloriesGoal}
               stepsGoal={stepsGoal}
-              theme={theme}
+              theme={theme === 'dark' ? 'dark' : 'light'}
             />
           </div>
         )}
