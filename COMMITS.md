@@ -10,3 +10,4 @@ fad3406 2026-07-12 21:37 PKT Polish — completed UI overhaul of layout, modaliz
 c9a834e 2026-07-13 01:11 PKT Polish — documented layout overhaul decisions and updated roadmap milestones status
 bfd4160 2026-07-13 01:34 PKT Release hardening — restored signed shared-secret protection, validated server actions, fixed mobile/accessibility issues, upgraded Next.js, and added CI/tests/deployment docs
 57be740 2026-07-13 01:37 PKT Deployment — excluded local secrets and agent metadata from Vercel uploads
+6db6345 2026-07-14 15:25 PKT Polish — improve dashboard UI with quick add and premium theme, fix theme switcher
